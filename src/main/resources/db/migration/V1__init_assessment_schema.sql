@@ -1,0 +1,120 @@
+-- ===================================================================
+-- Flyway Migration V1: Initial Assessment Service Schema
+-- ===================================================================
+
+CREATE TABLE IF NOT EXISTS assessments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    instructions LONGTEXT,
+    category VARCHAR(100) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+    access_type VARCHAR(50) NOT NULL DEFAULT 'INVITE_ONLY',
+    passcode VARCHAR(255) NULL,
+    total_duration_minutes INT NOT NULL DEFAULT 60,
+    total_marks DECIMAL(10, 2) NOT NULL DEFAULT 100.00,
+    passing_marks DECIMAL(10, 2) NOT NULL DEFAULT 40.00,
+    passing_percentage DECIMAL(5, 2) NOT NULL DEFAULT 40.00,
+    valid_from DATETIME NULL,
+    valid_to DATETIME NULL,
+    shuffle_questions BOOLEAN NOT NULL DEFAULT TRUE,
+    shuffle_options BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_navigation_back BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_review BOOLEAN NOT NULL DEFAULT TRUE,
+    allow_retake BOOLEAN NOT NULL DEFAULT FALSE,
+    max_retake_attempts INT NOT NULL DEFAULT 1,
+    auto_submit_on_expiry BOOLEAN NOT NULL DEFAULT TRUE,
+    connection_grace_period_minutes INT NOT NULL DEFAULT 10,
+    dynamic_questionnaire_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    show_results_immediately BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by VARCHAR(100) NOT NULL,
+    updated_by VARCHAR(100) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    INDEX idx_assessments_status (status),
+    INDEX idx_assessments_category (category),
+    INDEX idx_assessments_created_by (created_by),
+    INDEX idx_assessments_code (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assessment_sections (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    assessment_id BIGINT NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    section_order INT NOT NULL DEFAULT 1,
+    section_duration_minutes INT NULL,
+    cutoff_marks DECIMAL(10, 2) NULL,
+    weightage_percentage DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+    question_type VARCHAR(50) NOT NULL DEFAULT 'MCQ',
+    total_questions_to_ask INT NOT NULL DEFAULT 10,
+    easy_question_count INT NOT NULL DEFAULT 0,
+    medium_question_count INT NOT NULL DEFAULT 0,
+    hard_question_count INT NOT NULL DEFAULT 0,
+    question_set_id VARCHAR(100) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (assessment_id) REFERENCES assessments (id) ON DELETE CASCADE,
+    INDEX idx_sections_assessment_id (assessment_id),
+    INDEX idx_sections_order (assessment_id, section_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assessment_proctoring_rules (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    assessment_id BIGINT NOT NULL UNIQUE,
+    camera_required BOOLEAN NOT NULL DEFAULT TRUE,
+    mic_required BOOLEAN NOT NULL DEFAULT TRUE,
+    fullscreen_enforced BOOLEAN NOT NULL DEFAULT TRUE,
+    tab_switch_limit INT NOT NULL DEFAULT 3,
+    face_detection_required BOOLEAN NOT NULL DEFAULT TRUE,
+    multiple_faces_forbidden BOOLEAN NOT NULL DEFAULT TRUE,
+    phone_detection_forbidden BOOLEAN NOT NULL DEFAULT TRUE,
+    copy_paste_forbidden BOOLEAN NOT NULL DEFAULT TRUE,
+    code_similarity_check BOOLEAN NOT NULL DEFAULT TRUE,
+    screen_share_required BOOLEAN NOT NULL DEFAULT FALSE,
+    auto_terminate_on_violations BOOLEAN NOT NULL DEFAULT TRUE,
+    warning_threshold INT NOT NULL DEFAULT 3,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (assessment_id) REFERENCES assessments (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assessment_enrollments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    assessment_id BIGINT NOT NULL,
+    candidate_id VARCHAR(100) NOT NULL,
+    candidate_email VARCHAR(255) NOT NULL,
+    candidate_name VARCHAR(255) NOT NULL,
+    enrollment_status VARCHAR(50) NOT NULL DEFAULT 'ENROLLED',
+    invitation_token VARCHAR(100) NOT NULL UNIQUE,
+    scheduled_start_time DATETIME NULL,
+    scheduled_end_time DATETIME NULL,
+    attempt_count INT NOT NULL DEFAULT 0,
+    enrolled_by VARCHAR(100) NOT NULL,
+    enrolled_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL,
+    FOREIGN KEY (assessment_id) REFERENCES assessments (id) ON DELETE CASCADE,
+    UNIQUE KEY uk_assessment_candidate (assessment_id, candidate_id),
+    INDEX idx_enrollments_candidate (candidate_id),
+    INDEX idx_enrollments_token (invitation_token),
+    INDEX idx_enrollments_status (enrollment_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assessment_audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    assessment_id BIGINT NOT NULL,
+    user_id VARCHAR(100) NOT NULL,
+    user_role VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    description VARCHAR(500) NOT NULL,
+    old_value_json LONGTEXT NULL,
+    new_value_json LONGTEXT NULL,
+    ip_address VARCHAR(50) NULL,
+    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_assessment_id (assessment_id),
+    INDEX idx_audit_user_id (user_id),
+    INDEX idx_audit_action (action)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
